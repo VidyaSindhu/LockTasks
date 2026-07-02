@@ -13,6 +13,9 @@ final class StickyNote {
     var title: String
     var colorHex: String
     var createdAt: Date
+    /// Lower value = higher position in the home grid/list.
+    /// Model-level default ensures safe lightweight migration.
+    var sortOrder: Int = 0
 
     /// Cascade-delete all child TaskItems when this note is deleted.
     @Relationship(deleteRule: .cascade, inverse: \TaskItem.note)
@@ -22,12 +25,14 @@ final class StickyNote {
         id: UUID = UUID(),
         title: String,
         colorHex: String = "#FFD700",
-        createdAt: Date = .now
+        createdAt: Date = .now,
+        sortOrder: Int = 0
     ) {
         self.id = id
         self.title = title
         self.colorHex = colorHex
         self.createdAt = createdAt
+        self.sortOrder = sortOrder
     }
 
     /// Pending tasks sorted by manual priority first, then creation date.

@@ -9,6 +9,9 @@ struct AddNoteSheet: View {
     @Environment(\.modelContext) private var modelContext
     @Binding var isPresented: Bool
 
+    /// Passed in by HomeView so new notes append at the end of the sorted list.
+    var nextSortOrder: Int = 0
+
     @State private var title = ""
     @State private var selectedHex = Color.stickyPalette[0].0
     @FocusState private var isTitleFocused: Bool
@@ -97,7 +100,8 @@ struct AddNoteSheet: View {
     private func save() {
         let note = StickyNote(
             title: title.trimmingCharacters(in: .whitespaces),
-            colorHex: selectedHex
+            colorHex: selectedHex,
+            sortOrder: nextSortOrder
         )
         modelContext.insert(note)
         try? modelContext.save()

@@ -8,7 +8,9 @@ struct HomeView: View {
 
     @Environment(\.modelContext) private var modelContext
 
-    @Query(sort: \StickyNote.createdAt, order: .reverse)
+    /// Notes sorted by manual sortOrder, then createdAt as tiebreaker.
+    @Query(sort: [SortDescriptor(\StickyNote.sortOrder),
+                  SortDescriptor(\StickyNote.createdAt)])
     private var notes: [StickyNote]
 
     @Binding var deepLinkNoteID: String?
@@ -16,6 +18,7 @@ struct HomeView: View {
 
     @State private var navigationPath = NavigationPath()
     @State private var showingAddNote = false
+    @State private var isReordering = false
     @State private var noteToRename: StickyNote?
     @State private var editedNoteTitle = ""
     @State private var showingRenameAlert = false
@@ -27,6 +30,8 @@ struct HomeView: View {
             Group {
                 if notes.isEmpty {
                     emptyState
+                } else if isReordering {
+                    reorderList
                 } else {
                     noteGrid
                 }
@@ -37,6 +42,19 @@ struct HomeView: View {
                 NoteDetailView(note: note)
             }
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    if !notes.isEmpty {
+                        Button {
+                            withAnimation { isReordering.toggle() }
+                        } label: {
+                            Label(
+                                isReordering ? "Done" : "Reorder",
+                                systemImage: isReordering ? "checkmark.circle.fill" : "arrow.up.arrow.down"
+                            )
+                        }
+                        .tint(isReordering ? .green : .primary)
+                    }
+                }
                 ToolbarItem(placement: .primaryAction) {
                     Button {
                         showingAddNote = true
@@ -44,10 +62,14 @@ struct HomeView: View {
                         Image(systemName: "plus")
                             .fontWeight(.semibold)
                     }
+                    .disabled(isReordering)
                 }
             }
             .sheet(isPresented: $showingAddNote) {
-                AddNoteSheet(isPresented: $showingAddNote)
+                AddNoteSheet(
+                    isPresented: $showingAddNote,
+                    nextSortOrder: (notes.map(\.sortOrder).max() ?? -1) + 1
+                )
             }
             .alert("Rename Note", isPresented: $showingRenameAlert) {
                 TextField("Note name", text: $editedNoteTitle)
@@ -58,20 +80,17 @@ struct HomeView: View {
                 Text("Update the note title.")
             }
         }
-        // Respond to deep-link note IDs arriving from the widget.
         .onChange(of: deepLinkNoteID) { _, newID in
             guard let idString = newID,
                   let uuid = UUID(uuidString: idString),
                   let note = notes.first(where: { $0.id == uuid }) else { return }
-
-            // Reset path then push so we always land at the right note.
             navigationPath = NavigationPath()
             navigationPath.append(note)
             deepLinkNoteID = nil
         }
     }
 
-    // MARK: - Subviews
+    // MARK: - Grid (normal browsing)
 
     private var noteGrid: some View {
         ScrollView {
@@ -87,7 +106,6 @@ struct HomeView: View {
                         } label: {
                             Label("Rename Note", systemImage: "pencil")
                         }
-
                         Button(role: .destructive) {
                             deleteNote(note)
                         } label: {
@@ -97,6 +115,42 @@ struct HomeView: View {
                 }
             }
             .padding(16)
+        }
+    }
+
+    // MARK: - List (reorder mode)
+
+    private var reorderList: some View {
+        List {
+            ForEach(notes) { note in
+                HStack(spacing: 12) {
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color(hex: note.colorHex))
+                        .frame(width: 14, height: 44)
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(note.title)
+                            .font(.headline)
+
+                        let pending = note.tasks.filter { !$0.isCompleted }.count
+                        Text("\(pending) pending task\(pending == 1 ? "" : "s")")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Spacer()
+                }
+                .padding(.vertical, 4)
+            }
+            .onMove(perform: reorderNotes)
+        }
+        .listStyle(.insetGrouped)
+        .environment(\.editMode, .constant(.active))
+        .overlay(alignment: .bottom) {
+            Text("Drag to reorder. Tap ✓ when done.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .padding(.bottom, 8)
         }
     }
 
@@ -113,9 +167,26 @@ struct HomeView: View {
 
     // MARK: - Actions
 
+    private func reorderNotes(from source: IndexSet, to destination: Int) {
+        var reordered = notes
+        reordered.move(fromOffsets: source, toOffset: destination)
+        for (index, note) in reordered.enumerated() {
+            note.sortOrder = index
+        }
+        try? modelContext.save()
+        WidgetCenter.shared.reloadAllTimelines()
+    }
+
     private func deleteNote(_ note: StickyNote) {
         modelContext.delete(note)
+        normalizeNoteSortOrder()
         try? modelContext.save()
+    }
+
+    private func normalizeNoteSortOrder() {
+        for (index, note) in notes.enumerated() {
+            note.sortOrder = index
+        }
     }
 
     private func beginRename(_ note: StickyNote) {
@@ -128,7 +199,6 @@ struct HomeView: View {
         guard let noteToRename else { return }
         let trimmed = editedNoteTitle.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-
         noteToRename.title = trimmed
         try? modelContext.save()
         WidgetCenter.shared.reloadAllTimelines()

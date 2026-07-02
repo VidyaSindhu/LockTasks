@@ -6,25 +6,16 @@ import SwiftData
 @main
 struct LockTasksApp: App {
 
-    /// Drives deep-linking from widget → specific note detail.
-    @State private var deepLinkNoteID: String? = nil
+    /// Drives deep-linking from widget → note detail (optionally with add-task focus).
+    @State private var deepLinkRequest: DeepLinkRequest? = nil
 
     var body: some Scene {
         WindowGroup {
-            ContentView(deepLinkNoteID: $deepLinkNoteID)
+            ContentView(deepLinkRequest: $deepLinkRequest)
                 .onOpenURL { url in
-                    handleURL(url)
+                    deepLinkRequest = AppConstants.parseDeepLink(url)
                 }
         }
         .modelContainer(DatabaseManager.shared.container)
-    }
-
-    // MARK: - Helpers
-
-    private func handleURL(_ url: URL) {
-        if let noteID = AppConstants.noteID(from: url) {
-            deepLinkNoteID = noteID
-        }
-        // locktasks://home — opens the app without specific navigation.
     }
 }

@@ -13,10 +13,11 @@ struct HomeView: View {
                   SortDescriptor(\StickyNote.createdAt)])
     private var notes: [StickyNote]
 
-    @Binding var deepLinkNoteID: String?
+    @Binding var deepLinkRequest: DeepLinkRequest?
     var refreshToken: Int
 
     @State private var navigationPath = NavigationPath()
+    @State private var focusAddTaskForNoteID: UUID?
     @State private var showingAddNote = false
     @State private var isReordering = false
     @State private var noteToRename: StickyNote?
@@ -39,7 +40,15 @@ struct HomeView: View {
             .id(refreshToken)
             .navigationTitle("LockTasks")
             .navigationDestination(for: StickyNote.self) { note in
-                NoteDetailView(note: note)
+                NoteDetailView(
+                    note: note,
+                    autoFocusAddTask: focusAddTaskForNoteID == note.id,
+                    onDidFocusAddTask: {
+                        if focusAddTaskForNoteID == note.id {
+                            focusAddTaskForNoteID = nil
+                        }
+                    }
+                )
             }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -80,13 +89,19 @@ struct HomeView: View {
                 Text("Update the note title.")
             }
         }
-        .onChange(of: deepLinkNoteID) { _, newID in
-            guard let idString = newID,
+        .onChange(of: deepLinkRequest) { _, request in
+            guard let request,
+                  let idString = request.noteID,
                   let uuid = UUID(uuidString: idString),
                   let note = notes.first(where: { $0.id == uuid }) else { return }
+
+            if request.focusAddTask {
+                focusAddTaskForNoteID = uuid
+            }
+
             navigationPath = NavigationPath()
             navigationPath.append(note)
-            deepLinkNoteID = nil
+            deepLinkRequest = nil
         }
     }
 
@@ -206,6 +221,6 @@ struct HomeView: View {
 }
 
 #Preview {
-    HomeView(deepLinkNoteID: .constant(nil), refreshToken: 0)
+    HomeView(deepLinkRequest: .constant(nil), refreshToken: 0)
         .modelContainer(for: [StickyNote.self, TaskItem.self], inMemory: true)
 }

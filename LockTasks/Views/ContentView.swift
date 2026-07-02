@@ -3,21 +3,18 @@
 import SwiftUI
 import SwiftData
 
-/// Root tab container. Accepts a deep-link note ID from the widget and
-/// refreshes SwiftData @Query views every time the app comes to foreground
-/// so widget-driven task completions are always visible immediately.
+/// Root tab container. Accepts deep-link requests from the widget and
+/// refreshes SwiftData @Query views every time the app comes to foreground.
 struct ContentView: View {
 
-    @Binding var deepLinkNoteID: String?
+    @Binding var deepLinkRequest: DeepLinkRequest?
     @Environment(\.scenePhase) private var scenePhase
 
-    /// Incrementing this forces views using `.id(refreshToken)` to rebuild,
-    /// which re-executes their @Query and picks up changes written by the widget.
     @State private var refreshToken = 0
 
     var body: some View {
         TabView {
-            HomeView(deepLinkNoteID: $deepLinkNoteID, refreshToken: refreshToken)
+            HomeView(deepLinkRequest: $deepLinkRequest, refreshToken: refreshToken)
                 .tabItem {
                     Label("Notes", systemImage: "note.text")
                 }
@@ -28,8 +25,6 @@ struct ContentView: View {
                     Label("History", systemImage: "clock.arrow.circlepath")
                 }
         }
-        // When the app becomes active (including when opened from the widget),
-        // bump the refresh token so @Query views re-execute against the shared store.
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
                 refreshToken += 1
@@ -39,6 +34,6 @@ struct ContentView: View {
 }
 
 #Preview {
-    ContentView(deepLinkNoteID: .constant(nil))
+    ContentView(deepLinkRequest: .constant(nil))
         .modelContainer(for: [StickyNote.self, TaskItem.self], inMemory: true)
 }

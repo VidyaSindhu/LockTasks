@@ -8,14 +8,12 @@ import AppIntents
 /// Lock Screen widget UI — `.accessoryRectangular` only.
 ///
 /// Layout:
-///   Top row  : [📁 Note title ──────────] [⟫ cycle button]
+///   Top row  : [📁 Note title ──] [+] [⟫]
 ///   Divider
-///   Bottom row: [○ Top task title ────────────────────────]
+///   Bottom row: [○ Top task]  OR  [+ Add task] when empty
 ///
-/// Tapping the note title area opens the app (via Link/widgetURL).
-/// Tapping the cycle chevron fires CycleNoteIntent (no app launch).
-/// Tapping the task row fires CompleteTaskIntent (no app launch).
-/// Long-press is reserved by iOS for the Lock Screen editor — not interceptable.
+/// Option A: `+` in top row → deep-links to add-task (keyboard ready).
+/// Option B: bottom empty state → "+ Add task" deep-link.
 struct TaskWidgetView: View {
 
     let entry: TaskWidgetEntry
@@ -31,12 +29,10 @@ struct TaskWidgetView: View {
 
     // MARK: - Note row
 
-    /// The note title is a Link — tapping it deep-links directly into that note.
-    /// The cycle chevron is a separate intent Button — fires without opening the app.
     private var noteRow: some View {
         HStack(spacing: 0) {
 
-            // Left: tap → open app at the active note
+            // Tap note title → open note in app
             Link(destination: entry.noteLaunchURL) {
                 HStack(spacing: 4) {
                     Image(systemName: "folder.fill")
@@ -49,13 +45,24 @@ struct TaskWidgetView: View {
             }
             .foregroundStyle(.primary)
 
-            Spacer(minLength: 4)
+            Spacer(minLength: 2)
 
-            // Right: tap → cycle to next note (no app launch)
+            // Option A: + → open app with add-task field focused
+            if entry.noteIDString != nil {
+                Link(destination: entry.noteAddTaskLaunchURL) {
+                    Image(systemName: "plus")
+                        .font(.caption2.bold())
+                        .padding(.horizontal, 4)
+                        .contentShape(Rectangle())
+                }
+                .foregroundStyle(.primary)
+            }
+
+            // Cycle to next note (no app launch)
             Button(intent: CycleNoteIntent()) {
                 Image(systemName: "chevron.right.2")
                     .font(.caption2)
-                    .padding(.leading, 4)
+                    .padding(.leading, 2)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -63,12 +70,13 @@ struct TaskWidgetView: View {
         }
     }
 
-    // MARK: - Task row (Complete intent or empty state)
+    // MARK: - Task row
 
     @ViewBuilder
     private var taskRow: some View {
         if let taskTitle = entry.topTaskTitle,
            let taskID = entry.topTaskIDString {
+            // Pending task → tap to complete
             Button(intent: CompleteTaskIntent(taskID: taskID)) {
                 HStack(alignment: .top, spacing: 4) {
                     Image(systemName: "circle")
@@ -85,15 +93,14 @@ struct TaskWidgetView: View {
             .buttonStyle(.plain)
             .foregroundStyle(.primary)
         } else {
-            // All tasks done or no tasks — tapping deep-links into the note
-            Link(destination: entry.noteLaunchURL) {
+            // Option B: no pending tasks → tap to add
+            Link(destination: entry.noteAddTaskLaunchURL) {
                 HStack(spacing: 4) {
-                    Image(systemName: entry.noteTitle == "No Notes"
-                          ? "plus.circle" : "checkmark.circle.fill")
+                    Image(systemName: entry.noteTitle == "No Notes" ? "plus.circle" : "plus.circle.fill")
                         .font(.caption)
                     Text(entry.noteTitle == "No Notes"
                          ? "Open app to add notes"
-                         : "All done! Tap to add more")
+                         : "+ Add task")
                         .font(.caption)
                 }
                 .foregroundStyle(.secondary)
@@ -113,7 +120,7 @@ struct TaskWidgetView: View {
         date: .now,
         noteTitle: "Personal",
         noteColor: .stickyPurple,
-        noteIDString: nil,
+        noteIDString: "00000000-0000-0000-0000-000000000001",
         topTaskTitle: nil,
         topTaskIDString: nil
     )

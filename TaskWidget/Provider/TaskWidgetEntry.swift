@@ -18,12 +18,20 @@ struct TaskWidgetEntry: TimelineEntry {
     let topTaskTitle: String?
     let topTaskIDString: String?
 
-    /// Convenience: the deep-link URL for the active note, or the home URL if no ID.
+    /// Deep-link URL that opens the note in the app.
     var noteLaunchURL: URL {
         if let id = noteIDString {
             return AppConstants.noteURL(id: id) ?? AppConstants.appLaunchURL ?? URL(string: "locktasks://home")!
         }
         return AppConstants.appLaunchURL ?? URL(string: "locktasks://home")!
+    }
+
+    /// Deep-link URL that opens the note and focuses the add-task field.
+    var noteAddTaskLaunchURL: URL {
+        if let id = noteIDString {
+            return AppConstants.noteAddTaskURL(id: id) ?? noteLaunchURL
+        }
+        return noteLaunchURL
     }
 
     // MARK: - Static convenience entries

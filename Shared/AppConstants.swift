@@ -2,6 +2,12 @@
 
 import Foundation
 
+/// Parsed deep-link target from a `locktasks://` URL.
+struct DeepLinkRequest: Equatable {
+    var noteID: String?
+    var focusAddTask: Bool = false
+}
+
 enum AppConstants {
     static let appGroupID = "group.com.vsd-local.LockTasks"
     static let storeFilename = "LockTasks.store"
@@ -18,12 +24,30 @@ enum AppConstants {
         URL(string: "\(deepLinkScheme)://note/\(id)")
     }
 
-    /// Extracts a note UUID string from a deep-link URL, or nil if the URL
-    /// is not a note deep link.
+    /// Opens the app to the note and focuses the add-task field.
+    static func noteAddTaskURL(id: String) -> URL? {
+        URL(string: "\(deepLinkScheme)://note/\(id)/add")
+    }
+
+    /// Parses any supported `locktasks://` URL into a navigation request.
+    static func parseDeepLink(_ url: URL) -> DeepLinkRequest {
+        guard url.scheme == deepLinkScheme else {
+            return DeepLinkRequest(noteID: nil, focusAddTask: false)
+        }
+
+        switch url.host {
+        case "note":
+            let pathParts = url.pathComponents.filter { $0 != "/" }
+            let noteID = pathParts.first.flatMap { $0.isEmpty ? nil : $0 }
+            let focusAddTask = pathParts.dropFirst().contains("add")
+            return DeepLinkRequest(noteID: noteID, focusAddTask: focusAddTask)
+        default:
+            return DeepLinkRequest(noteID: nil, focusAddTask: false)
+        }
+    }
+
+    /// Legacy helper — extracts note ID only (no add-task flag).
     static func noteID(from url: URL) -> String? {
-        guard url.scheme == deepLinkScheme,
-              url.host == "note" else { return nil }
-        let id = url.pathComponents.dropFirst().first
-        return id?.isEmpty == false ? id : nil
+        parseDeepLink(url).noteID
     }
 }

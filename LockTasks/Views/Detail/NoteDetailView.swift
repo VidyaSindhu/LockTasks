@@ -10,6 +10,10 @@ struct NoteDetailView: View {
     @Environment(\.modelContext) private var modelContext
     @Bindable var note: StickyNote
 
+    /// When true (e.g. opened via widget `+` deep link), focuses the add-task field on appear.
+    var autoFocusAddTask: Bool = false
+    var onDidFocusAddTask: (() -> Void)? = nil
+
     @State private var newTaskTitle = ""
     @State private var editedNoteTitle = ""
     @State private var isRenameNotePresented = false
@@ -53,6 +57,14 @@ struct NoteDetailView: View {
                 .disabled(editedNoteTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         } message: {
             Text("Update the note title shown in the app and widget.")
+        }
+        .onAppear {
+            guard autoFocusAddTask else { return }
+            // Brief delay lets navigation settle before raising the keyboard.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
+                isInputFocused = true
+            }
+            onDidFocusAddTask?()
         }
     }
 

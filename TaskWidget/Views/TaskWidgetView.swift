@@ -8,9 +8,12 @@ import AppIntents
 /// Lock Screen widget UI — `.accessoryRectangular` only.
 ///
 /// Layout:
-///   Top row  : [📁 Note title ──────────] [⟫]
+///   Top row  : [📁 Note title ──] [+] [⟫]
 ///   Divider
 ///   Bottom row: [○ Top task]  OR  [+ Add task] when no pending tasks
+///
+/// The `+` in the top row is always visible and deep-links to the note
+/// with the add-task field auto-focused, regardless of pending task count.
 struct TaskWidgetView: View {
 
     let entry: TaskWidgetEntry
@@ -42,13 +45,24 @@ struct TaskWidgetView: View {
             }
             .foregroundStyle(.primary)
 
-            Spacer(minLength: 4)
+            Spacer(minLength: 2)
+
+            // + → open app with add-task field focused (always visible)
+            if entry.noteIDString != nil {
+                Link(destination: entry.noteAddTaskLaunchURL) {
+                    Image(systemName: "plus")
+                        .font(.caption2.bold())
+                        .padding(.horizontal, 4)
+                        .contentShape(Rectangle())
+                }
+                .foregroundStyle(.primary)
+            }
 
             // Cycle to next note (no app launch)
             Button(intent: CycleNoteIntent()) {
                 Image(systemName: "chevron.right.2")
                     .font(.caption2)
-                    .padding(.leading, 4)
+                    .padding(.leading, 2)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
